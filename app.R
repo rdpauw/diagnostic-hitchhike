@@ -3,33 +3,94 @@ library(shinydashboard)
 library(purrr)
 library(shinyWidgets)
 library(highcharter)
+source("https://raw.githubusercontent.com/achekroud/nomogrammer/master/nomogrammer.r")
+source("www/pages/info_page.R")
+library(fresh)
 
+##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+##                  THEME ####
+##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Create the theme
+mytheme <- create_theme(
+  adminlte_color(
+    light_blue = "#434C5E"
+  ),
+  adminlte_sidebar(
+    dark_bg = "#434C5E",
+    dark_hover_bg = "#81A1C1",
+    dark_color = "#2E3440", 
+    light_color = "#2E3440"
+  ),
+  adminlte_global(
+    content_bg = "#FFF",
+    box_bg = "#FFF", 
+    info_box_bg = "#FFF"
+  )
+)
+
+header <- dashboardHeader()
+anchor <- tags$a(href='https://reva.ugent.be',
+                 tags$img(src='ugent.png', height='30', width='40'),
+                 'Hitchhiker Dx')
+
+header$children[[2]]$children <- tags$div(
+  tags$head(tags$style(HTML(".name { background-color: white }"))),
+  anchor,
+  class = 'name')
+
+##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+##                  UI ####
+##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ui <- shinydashboard::dashboardPage(
+  skin = "black",
   ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   ##                  UI: HEADER ####
   ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  shinydashboard::dashboardHeader(),
+  header,
   ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   ##                  UI: SIDEBAR ####
   ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  shinydashboard::dashboardSidebar(sidebarMenu(
+  shinydashboard::dashboardSidebar(
+    sidebarMenu(
+      menuItem("Info", tabName = "info", icon = icon("info"))
+    ),
+    fluidRow(h4(column("Hitchhiker guide", width = 12, offset = 1))),
+    sidebarMenu(
     numericInput(
       "ndiag",
-      "Number of diagnosis",
-      value = 5,
+      "# dx in differential diagnosis",
+      value = 2,
       min = 1
     ),
-    menuItem("Anamnesis", tabName = "anamnesis", icon = icon("question")),
-    menuItem("Find tests", tabName = "tests", icon = icon("list")),
-    menuItem("Diagnosis", tabName = "diagnosis", icon = icon("check"))
+    menuItem("1-Anamnesis", tabName = "anamnesis", icon = icon("question")),
+    menuItem("2-Find tests", tabName = "tests", icon = icon("fingerprint")),
+    menuItem("3-Diagnosis", tabName = "diagnosis", icon = icon("check"))
+    ),
+    fluidRow(h4(column("Extra functions", width = 12, offset = 1))),
+    sidebarMenu(
+    menuItem("Nomogram", tabName = "nomogram")
+    #div(img(src = "ugent.png", height="20%", width="20%"), style="text-align: center;")
   )),
   ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   ##                  UI: PAGE ####
   ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  shinydashboard::dashboardBody(tabItems(
+  shinydashboard::dashboardBody(
+    # use_theme(mytheme),
+    tabItems(
+    ## .. info page
+    info_page,
     ## .. anamnesis
     tabItem(tabName = "anamnesis",
-            fluidRow(column(width = 12)),
+            fluidRow(
+              column(
+                h2("Step 1 - Anamnesis"),
+                HTML("<p>Please fill in the different diagnoses you are considering,
+                     and assign a pre-test probability based on the symptomatology
+                     of the patient. The number of diagnoses can be changed in the
+                     sidebar. </p>"),
+                width = 12
+                )
+              ),
             fluidRow(column(
               uiOutput("pretest"),
               width = 12
@@ -38,23 +99,81 @@ ui <- shinydashboard::dashboardPage(
     ## .. tests
     tabItem(tabName = "tests",
             fluidRow(column(
-              h2("Search the literature"),
-              p("...."),
+              h2("Step 2 - Select tests"),
+              HTML("After the anamnesis, it is important to select the most approriate tests
+                   in the literature, and extract the most approriate diagnostic accuracy measures,
+                   such as the sensitivity and specificity. Once you have identified the most
+                   approriate test for each of the disorders, you can fill out the sensitivity
+                   and specificity in each of the boxes. To calculate the final probability
+                   of each tested disorder, you will also need to fill out the final test
+                   result, which could be inconclusive ('?'), positive ('+') or negative ('-')"),
               width = 12
             )),
+            fluidRow(
+              column(
+                h4("PubMed"),
+                p("PubMed is a free search engine accessing primarily the MEDLINE database of 
+                  references and abstracts on life sciences and biomedical topics."),
+                actionButton("pubmed", 
+                             label = "Search Pubmed",  
+                             onclick ="window.open('https://pubmed.ncbi.nlm.nih.gov/', '_blank')"),
+                width = 4
+              ),
+              column(
+                h4("Web of Science"),
+                p("The Web of Science (WoS) is a paid-access 
+                  platform that provides (typically via the internet) access to multiple databases 
+                  that provide reference and citation data from academic journals."),
+                actionButton("wos", 
+                             label = "Search Web of Science",
+                             onclick ="window.open('https://www.webofknowledge.com/', '_blank')"),
+                width = 4
+              ),
+              column(
+                h4("Google Scholar"),
+                p("Google Scholar is a freely accessible web search engine that 
+                  indexes the full text or metadata of scholarly literature across an 
+                  array of publishing formats and disciplines."),
+                actionButton("google", 
+                             label = "Search Google Scholar",
+                             onclick ="window.open('https://scholar.google.com/', '_blank')"),
+                width = 4
+              )
+            ),
             fluidRow(column(
+              br(),
               uiOutput("select"),
               width = 12
             ))),
     ## .. diagnosis
     tabItem(tabName = "diagnosis",
-            # fluidRow(
-            #   DT::dataTableOutput("DT")
-            # ),
+            fluidRow(
+              column(
+                h2("Step 3 - Final diagnosis"),
+                HTML("The final step is to decide on the most likely diagnosis based
+                     on the pre-test probability based on the anamnesis, and the
+                     test result. Combing both will yield a post-test probability
+                     for each of the diagnoses under evaluation."),
+                width = 12
+              )
+            ),
             fluidRow(column(
               uiOutput("result"),
               width = 12
-            )))
+            ))),
+    ## .. nomogram
+    tabItem(tabName = "nomogram",
+            fluidRow(
+              column(
+                sliderInput(inputId = "se", label = "Sensitivity", value = 50, min = 1, max = 100),
+                sliderInput(inputId = "sp", label = "Specificity", value = 50, min = 1, max = 100),
+                sliderInput(inputId = "prob", label = "Pre-test probability", value = 50, min = 1, max = 100),
+                width = 12
+              ),
+              column(
+                plotOutput("nomogram"),
+                width = 12
+              )))
   ))
   
 )
@@ -63,27 +182,37 @@ server <- function(input, output, session) {
   ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   ##                  SERVER: ANAMNESIS ####
   ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  n_input <- 
+    reactive({
+      paste0(seq_len(input$ndiag))
+    })
+  
   pretest_input <-
     reactive({
       paste0("pretest", seq_len(input$ndiag))
     })
+  
   disorder_input <-
     reactive({
       paste0("disorder", seq_len(input$ndiag))
     })
   
   output$pretest <- renderUI({
-    pmap(list(pretest_input(), disorder_input()),
+    pmap(list(pretest_input(), disorder_input(), n_input()),
          ~
            fluidRow(
-             column(textInput(
-               ..2, "", value = "", width = '100%'
+             column(
+               textInput(
+                 inputId = ..2, 
+                 label = paste0("Disoder ", ..3), 
+                 value = "", 
+                 width = '100%'
              ),
              width = 6),
              column(
                sliderInput(
-                 ..1,
-                 "",
+                 inputId = ..1, 
+                 label = paste0("Pre-test probability ", ..3), 
                  value = 1,
                  min = 1,
                  max = 100,
@@ -219,6 +348,20 @@ server <- function(input, output, session) {
   })
   
   ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  ##                  SERVER: DIAGNOSIS ####
+  ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  output$nomogram <- renderPlot({
+    req(input$prob)
+    req(input$se)
+    req(input$sp)
+    nomogrammer(Prevalence = input$prob/100, 
+                Sens = input$se/100, 
+                Spec = input$sp/100, 
+                NullLine = TRUE)
+  })
+  
+  
+  ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   ##                  HELPER FUNCTIONS ####
   ##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   ## create chart
@@ -263,7 +406,7 @@ server <- function(input, output, session) {
       hc_plotOptions(series = list(colorByPoint = TRUE))
   }
   
-  
+
   
   
   
